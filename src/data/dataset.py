@@ -1,17 +1,19 @@
 import os
+import json
+import shutil
 import numpy as np
-import torch
 
-from pathlib import Path
-from src.data.utils import read_calib_file, read_depth, read_rgb
-from torch.utils.data import Dataset
 from PIL import Image
+from pathlib import Path
+from src.data.utils import read_calib_file, read_depth, read_rgb, downsample_depth
+from torch.utils.data import Dataset
+
 
 raw_data_dir = Path(__file__).resolve().parents[2] / "data" / "raw"
 
 
 class KittiDataset(Dataset):
-    def __init__(self, root_dir=raw_data_dir, train=True, transform=None):
+    def __init__(self, root_dir=raw_data_dir, load_raw: bool = True, train=True, downsample_lidar=False):
         """
         Args:
             root_dir (string): Directory with all the images.
@@ -20,11 +22,29 @@ class KittiDataset(Dataset):
         """
         self.root_dir = root_dir
         self.train = train
-        self.transform = transform
-        self.mode = 'train' if self.train else 'val'
-        self.data_list = self._load_data()
+        self.load_raw = load_raw
 
-    def _load_data(self):
+        self.mode = 'train' if self.train else 'val'
+        self.data_list = self.load_data()
+
+        self.downsample_lidar = downsample_lidar
+
+    def load_data(self):
+        if self.load_raw:
+            return self._load_from_raw()
+        else:
+            return self._load_from_processed()
+        
+    def _load_from_processed(self):
+        data_path = self.root_dir + ("/train/" if self.train else "/valid/")
+        with open(data_path + "data_list.json", 'r') as json_file:
+            data_list = json.load(json_file)
+        return [
+            {key: data_path + path for key, path in example.items()} 
+            for example in data_list
+        ]
+
+    def _load_from_raw(self):
         """Load the file paths of images for LIDAR data from left and right cameras."""
         paths = []
         gt_path = os.path.join(self.root_dir, 'data_depth_annotated', self.mode)
@@ -47,33 +67,49 @@ class KittiDataset(Dataset):
                     for image in Path(os.path.join(gt_seq, camera)).rglob('*.png')]
                 paths.extend(images)
         return paths
+    
+    def _preprocess_dataset(self, output_dir: str, new_size: tuple):
+        updated_images = []
+    
+        for image_info in self.data_list:
+            updated_image_info = {}
+            
+            for key, old_path in image_info.items():
+                rel_path = os.path.relpath(old_path, self.root_dir)
+                new_path = os.path.join(output_dir, rel_path)
+                os.makedirs(os.path.dirname(new_path), exist_ok=True)
+                
+                if not old_path.endswith('.png'):
+                    shutil.copy(old_path, new_path)
+                else:
+                    img = Image.open(old_path)
+                    resized_img = img.resize(new_size)
+                    resized_img.save(new_path)
+                
+                updated_image_info[key] = rel_path
+            
+            updated_images.append(updated_image_info)
+
+        with open(output_dir + "/data_list.json", 'w') as json_file:
+            json.dump(updated_images, json_file, indent=4)
+        
 
     def __len__(self):
         return len(self.data_list)
 
     def __getitem__(self, idx):
         data = self.data_list[idx]
-        sparse = read_depth(data['sparse'])
-        gt = read_depth(data['gt'])
-        rgb = read_rgb(data['rgb'])
+        sparse = np.expand_dims(read_depth(data['sparse']), -1).transpose(2, 0 ,1)
+        gt = np.expand_dims(read_depth(data['gt']), -1).transpose(2, 0 ,1)
+        rgb = read_rgb(data['rgb']).transpose(2, 0 ,1)
 
-        if self.mode in ['train', 'val']:
-            calib = read_calib_file(data['calibration'])
-            if 'image_02' in data['rgb']:
-                K_cam = np.reshape(calib['P_rect_02'], (3, 4))
-            elif 'image_03' in data['rgb']:
-                K_cam = np.reshape(calib['P_rect_03'], (3, 4))
-            K = [K_cam[0, 0], K_cam[1, 1], K_cam[0, 2], K_cam[1, 2]]
-        else:
-            f_calib = open(data['calibration'], 'r')
-            K_cam = f_calib.readline().split(' ')
-            f_calib.close()
-            K = [float(K_cam[0]), float(K_cam[4]), float(K_cam[2]), float(K_cam[5])]
+        if self.downsample_lidar:
+            sparse = downsample_depth(sparse, 1000)
 
-        w1, h1, _ = rgb.shape
-        w2, h2 = sparse.shape
-        w3, h3 = gt.shape
+        _, h1, w1 = rgb.shape
+        _, h2, w2  = sparse.shape
+        _, h3, w3  = gt.shape
 
         assert w1 == w2 and w1 == w3 and h1 == h2 and h1 == h3
 
-        return rgb, sparse, gt, K
+        return rgb, sparse, gt

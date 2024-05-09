@@ -9,3 +9,6 @@ torch
 numpy
 loguru
 python-dotenv>=0.5.1
+Pillow
+lightning
+neptune

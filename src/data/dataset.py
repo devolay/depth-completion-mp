@@ -102,7 +102,7 @@ class KittiDataset(Dataset):
         data = self.data_list[idx]
         sparse = torch.Tensor(np.expand_dims(read_depth(data['sparse']), -1).transpose(2, 0 ,1))
         gt = torch.Tensor(np.expand_dims(read_depth(data['gt']), -1).transpose(2, 0 ,1))
-        rgb = torch.Tensor(read_rgb(data['rgb']).transpose(2, 0 ,1))
+        rgb = torch.Tensor(read_rgb(data['rgb']).transpose(2, 0 ,1)) * 255.0
 
         if self.downsample_lidar:
             sparse = downsample_depth(sparse, 1000)
@@ -114,6 +114,8 @@ class KittiDataset(Dataset):
         assert w1 == w2 and w1 == w3 and h1 == h2 and h1 == h3
         
         input = torch.cat((sparse, rgb), 0)
+
+        import pdb; pdb.set_trace()
 
         if self.train:
             if np.random.uniform(0.0, 1.0) > 0.5:

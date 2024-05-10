@@ -1,12 +1,14 @@
 import os
 import json
 import shutil
+import torch
 import numpy as np
 
 from PIL import Image
 from pathlib import Path
 from src.data.utils import read_calib_file, read_depth, read_rgb, downsample_depth
 from torch.utils.data import Dataset
+import torchvision.transforms.functional as F
 
 
 raw_data_dir = Path(__file__).resolve().parents[2] / "data" / "raw"
@@ -93,15 +95,14 @@ class KittiDataset(Dataset):
         with open(output_dir + "/data_list.json", 'w') as json_file:
             json.dump(updated_images, json_file, indent=4)
         
-
     def __len__(self):
         return len(self.data_list)
 
     def __getitem__(self, idx):
         data = self.data_list[idx]
-        sparse = np.expand_dims(read_depth(data['sparse']), -1).transpose(2, 0 ,1)
-        gt = np.expand_dims(read_depth(data['gt']), -1).transpose(2, 0 ,1)
-        rgb = read_rgb(data['rgb']).transpose(2, 0 ,1)
+        sparse = torch.Tensor(np.expand_dims(read_depth(data['sparse']), -1).transpose(2, 0 ,1))
+        gt = torch.Tensor(np.expand_dims(read_depth(data['gt']), -1).transpose(2, 0 ,1))
+        rgb = torch.Tensor(read_rgb(data['rgb']).transpose(2, 0 ,1))
 
         if self.downsample_lidar:
             sparse = downsample_depth(sparse, 1000)
@@ -111,5 +112,11 @@ class KittiDataset(Dataset):
         _, h3, w3  = gt.shape
 
         assert w1 == w2 and w1 == w3 and h1 == h2 and h1 == h3
+        
+        input = torch.cat((sparse, rgb), 0)
 
-        return rgb, sparse, gt
+        if self.train:
+            if np.random.uniform(0.0, 1.0) > 0.5:
+                input, gt = F.hflip(input), F.hflip(gt)
+
+        return input, gt

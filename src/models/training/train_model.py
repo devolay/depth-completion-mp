@@ -4,7 +4,7 @@ from dotenv import load_dotenv
 from torch.utils.data import DataLoader
 from lightning.pytorch import Trainer
 from lightning.pytorch.loggers import NeptuneLogger
-from lightning.pytorch.callbacks import ModelCheckpoint
+from lightning.pytorch.callbacks import ModelCheckpoint, LearningRateMonitor
 
 from src.models.lightning_wrapper import UncertaintyNetLM
 from src.models.training.config import TrainingConfig
@@ -27,6 +27,8 @@ def train_model(config: TrainingConfig):
         dirpath=config.output_path,
         filename='{epoch}-{valid_rmse:.2f}'
     )
+
+    lr_monitor = LearningRateMonitor(logging_interval='step')
     
     training_dataset = KittiDataset(root_dir=config.dataset_path, load_raw=False)
     validation_dataset = KittiDataset(root_dir=config.dataset_path, train=False, load_raw=False)
@@ -38,5 +40,5 @@ def train_model(config: TrainingConfig):
         validation_dataset, batch_size=config.batch_size, shuffle=False, pin_memory=True, drop_last=True
     )
 
-    trainer = Trainer(max_epochs=10, logger=neptune_logger, callbacks=[checkpoint_callback])
+    trainer = Trainer(max_epochs=10, logger=neptune_logger, callbacks=[checkpoint_callback, lr_monitor])
     trainer.fit(model=model, train_dataloaders=train_loader, val_dataloaders=validation_loader)

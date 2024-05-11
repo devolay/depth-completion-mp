@@ -15,7 +15,7 @@ raw_data_dir = Path(__file__).resolve().parents[2] / "data" / "raw"
 
 
 class KittiDataset(Dataset):
-    def __init__(self, root_dir=raw_data_dir, load_raw: bool = True, train=True, downsample_lidar=False):
+    def __init__(self, root_dir=raw_data_dir, load_raw: bool = True, train=True, downsample_lidar=True):
         """
         Args:
             root_dir (string): Directory with all the images.
@@ -102,10 +102,10 @@ class KittiDataset(Dataset):
         data = self.data_list[idx]
         sparse = torch.Tensor(np.expand_dims(read_depth(data['sparse']), -1).transpose(2, 0 ,1))
         gt = torch.Tensor(np.expand_dims(read_depth(data['gt']), -1).transpose(2, 0 ,1))
-        rgb = torch.Tensor(read_rgb(data['rgb']).transpose(2, 0 ,1)) * 255.0
+        rgb = torch.Tensor(read_rgb(data['rgb']).transpose(2, 0 ,1)).float() * 255.0
 
         if self.downsample_lidar:
-            sparse = downsample_depth(sparse, 1000)
+            sparse = downsample_depth(sparse, 500)
 
         _, h1, w1 = rgb.shape
         _, h2, w2  = sparse.shape
@@ -114,8 +114,6 @@ class KittiDataset(Dataset):
         assert w1 == w2 and w1 == w3 and h1 == h2 and h1 == h3
         
         input = torch.cat((sparse, rgb), 0)
-
-        import pdb; pdb.set_trace()
 
         if self.train:
             if np.random.uniform(0.0, 1.0) > 0.5:

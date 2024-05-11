@@ -19,21 +19,21 @@ class UncertaintyNetLM(LightningModule):
         (input, gt) = batch 
         prediction, lidar_out, precise, guide = self.model(input)
 
-        loss_pred = torch.nn.functional.mse_loss(prediction, gt)
-        loss_lidar = torch.nn.functional.mse_loss(lidar_out, gt)
-        loss_rgb = torch.nn.functional.mse_loss(precise, gt)
-        loss_guide = torch.nn.functional.mse_loss(guide, gt)
+        loss_pred = torch.nn.functional.mse_loss(prediction[:, 0:1], gt)
+        loss_lidar = torch.nn.functional.mse_loss(lidar_out[:, 0:1], gt)
+        loss_rgb = torch.nn.functional.mse_loss(precise[:, 0:1], gt)
+        loss_guide = torch.nn.functional.mse_loss(guide[:, 0:1], gt)
         loss = 1.0*loss_pred + 0.1*loss_lidar + 0.1*loss_rgb + 0.1*loss_guide
         
-        self.log(f"{mode}_loss_pred", loss_pred.item(), on_epoch=True, batch_size=self.config.batch_size)
-        self.log(f"{mode}_loss_lidar", loss_lidar.item(), on_epoch=True, batch_size=self.config.batch_size)
-        self.log(f"{mode}_loss_rgb", loss_rgb.item(), on_epoch=True, batch_size=self.config.batch_size)
-        self.log(f"{mode}_loss_guide", loss_guide.item(), on_epoch=True, batch_size=self.config.batch_size)
-        self.log(f"{mode}_loss", loss.item(), on_epoch=True, batch_size=self.config.batch_size)
+        self.log(f"{mode}_loss_pred", loss_pred.item(), on_epoch=True, batch_size=self.config.batch_size, sync_dist=True)
+        self.log(f"{mode}_loss_lidar", loss_lidar.item(), on_epoch=True, batch_size=self.config.batch_size, sync_dist=True)
+        self.log(f"{mode}_loss_rgb", loss_rgb.item(), on_epoch=True, batch_size=self.config.batch_size, sync_dist=True)
+        self.log(f"{mode}_loss_guide", loss_guide.item(), on_epoch=True, batch_size=self.config.batch_size, sync_dist=True)
+        self.log(f"{mode}_loss", loss.item(), on_epoch=True, batch_size=self.config.batch_size, sync_dist=True)
 
         mse, rmse = self.metrics.calculate(prediction, gt)
-        self.log(f"{mode}_mse", mse, on_epoch=True, batch_size=self.config.batch_size)
-        self.log(f"{mode}_rmse", rmse, on_epoch=True, batch_size=self.config.batch_size)
+        self.log(f"{mode}_mse", mse, on_epoch=True, batch_size=self.config.batch_size, sync_dist=True)
+        self.log(f"{mode}_rmse", rmse, on_epoch=True, batch_size=self.config.batch_size, sync_dist=True)
 
         return loss
     
@@ -44,7 +44,7 @@ class UncertaintyNetLM(LightningModule):
         return self.step(batch, "valid")
 
     def configure_optimizers(self):
-        optimizer = torch.optim.Adam(self.model.parameters(), lr=self.config.learning_rate)
+        optimizer = torch.optim.Adam(self.model.parameters(), lr=self.config.learning_rate, weight_decay=1e-7)
         scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=5)
         return {
             "optimizer": optimizer, 

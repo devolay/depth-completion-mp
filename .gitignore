@@ -88,3 +88,12 @@ target/
 
 # Mypy cache
 .mypy_cache/
+
+#Logs
+lightning_logs/
+
+#Venv
+venv/
+
+#Models
+*.ckpt

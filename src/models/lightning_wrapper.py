@@ -4,12 +4,14 @@ from lightning import LightningModule
 from src.models.model import uncertainty_net
 from src.models.training.metric import DepthCompletionMetrics
 from src.models.training.config import TrainingConfig
+from src.models.training.loss import MSE_loss
 
 class UncertaintyNetLM(LightningModule):
     def __init__(self, config: TrainingConfig):
         super().__init__()
         self.model = uncertainty_net(4)
         self.metrics = DepthCompletionMetrics()
+        self.loss = MSE_loss()
         self.config = config
         
     def forward(self, inputs, target):
@@ -19,10 +21,10 @@ class UncertaintyNetLM(LightningModule):
         (input, gt) = batch 
         prediction, lidar_out, precise, guide = self.model(input)
 
-        loss_pred = torch.nn.functional.mse_loss(prediction[:, 0:1], gt)
-        loss_lidar = torch.nn.functional.mse_loss(lidar_out[:, 0:1], gt)
-        loss_rgb = torch.nn.functional.mse_loss(precise[:, 0:1], gt)
-        loss_guide = torch.nn.functional.mse_loss(guide[:, 0:1], gt)
+        loss_pred = self.loss(prediction, gt)
+        loss_lidar = self.loss(lidar_out, gt)
+        loss_rgb = self.loss(precise, gt)
+        loss_guide = self.loss(guide, gt)
         loss = 1.0*loss_pred + 0.1*loss_lidar + 0.1*loss_rgb + 0.1*loss_guide
         
         self.log(f"{mode}_loss_pred", loss_pred.item(), on_epoch=True, batch_size=self.config.batch_size, sync_dist=True)

@@ -31,8 +31,8 @@ def train_model(config: TrainingConfig):
 
     lr_monitor = LearningRateMonitor(logging_interval='step')
     
-    training_dataset = KittiDataset(root_dir=config.dataset_path, load_raw=False)
-    validation_dataset = KittiDataset(root_dir=config.dataset_path, train=False, load_raw=False)
+    training_dataset = KittiDataset(root_dir=config.dataset_path, downsample_lidar=True, load_raw=False)
+    validation_dataset = KittiDataset(root_dir=config.dataset_path, downsample_lidar=False, train=False, load_raw=False)
 
     train_loader = DataLoader(
         training_dataset, batch_size=config.batch_size, shuffle=True, pin_memory=True, drop_last=True

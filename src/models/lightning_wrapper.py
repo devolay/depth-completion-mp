@@ -4,14 +4,14 @@ from lightning import LightningModule
 from src.models.model import uncertainty_net
 from src.models.training.metric import DepthCompletionMetrics
 from src.models.training.config import TrainingConfig
-from src.models.training.loss import MSE_loss
+from src.models.training.loss import MSE_loss, Huber_loss
 
 class UncertaintyNetLM(LightningModule):
     def __init__(self, config: TrainingConfig):
         super().__init__()
         self.model = uncertainty_net(4)
         self.metrics = DepthCompletionMetrics()
-        self.loss = MSE_loss()
+        self.loss = Huber_loss()
         self.config = config
         
     def forward(self, inputs, target):

@@ -45,6 +45,6 @@ def train_model(config: TrainingConfig):
         max_epochs=config.epochs, 
         # logger=neptune_logger, 
         callbacks=[checkpoint_callback, lr_monitor],
-        strategy=DDPStrategy(find_unused_parameters=True)
+        # strategy=DDPStrategy(find_unused_parameters=True)
     )
     trainer.fit(model=model, train_dataloaders=train_loader, val_dataloaders=validation_loader)

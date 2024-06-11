@@ -10,7 +10,7 @@ class DepthCompletionMetrics:
     def calculate(self, prediction, gt):
         valid_mask = (gt > 0).detach()
 
-        prediction = prediction[:, 0:1]
+        prediction = prediction
         prediction = prediction[valid_mask]
         gt = gt[valid_mask]
 

@@ -6,11 +6,11 @@ from src.models.training.train_model import train_model
 from src.models.training.config import TrainingConfig
 
 
-processed_path = "/home/dstachowiak/mp-project/depth-completion-mp/data/processed"
+processed_path = "/Users/dawid/Private/School/Sem 1/Machine Perception/Project/depth-completion-mp/data/processed"
 
 def main():
     config = TrainingConfig(
-        output_path="/home/dstachowiak/mp-project/depth-completion-mp/models/trainings",
+        output_path="/Users/dawid/Private/School/Sem 1/Machine Perception/Project/depth-completion-mp/models/trainings",
         epochs=50,
         batch_size=32,
         dataset_path=processed_path,

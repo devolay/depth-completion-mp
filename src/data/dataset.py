@@ -85,6 +85,8 @@ class KittiDataset(Dataset):
                     shutil.copy(old_path, new_path)
                 else:
                     img = Image.open(old_path)
+                    w, h = img.size
+                    img = F.crop(img, h-256, 0, 256, w)
                     resized_img = img.resize(new_size)
                     resized_img.save(new_path)
                 
